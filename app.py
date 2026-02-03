@@ -1,53 +1,64 @@
 from fastapi import FastAPI, Header, HTTPException
+from models import HoneypotRequest, HoneypotReply
 from detector import detect_scam
+from extractor import extract_intelligence
 from agent import HoneypotAgent
-from models import HoneypotRequest, HoneypotResponse
+from callback import send_final_callback
 
 app = FastAPI(title="Agentic Honeypot API")
 
-# 🔐 API KEY (change if needed)
-VALID_API_KEY = "GUVI_SECRET_123"
+API_KEY = "GUVI123"
 
-@app.get("/")
-def root():
-    return {"status": "Agentic Honeypot API is running"}
 
-@app.post("/honeypot/analyze", response_model=HoneypotResponse)
-def analyze_message(
-    req: HoneypotRequest,
-    x_api_key: str = Header(None)
-):
-    # 🔐 API KEY VALIDATION
-    if x_api_key != VALID_API_KEY:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or missing API key"
-        )
+SESSIONS = {}
 
-    # 🔍 Scam Detection
-    if not detect_scam(req.message):
-        return {
-            "is_scam": False,
-            "scam_type": "None",
-            "extracted_entities": {
-                "upi_ids": [],
-                "bank_accounts": [],
-                "phishing_links": []
-            },
-            "conversation": [],
-            "risk_score": 0.0
+@app.post("/honeypot/analyze", response_model=HoneypotReply)
+def honeypot(req: HoneypotRequest, x_api_key: str = Header(None)):
+
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
+
+    sid = req.sessionId
+
+    if sid not in SESSIONS:
+        SESSIONS[sid] = {
+            "scamDetected": False,
+            "messages": 0,
+            "intelligence": {
+                "bankAccounts": [],
+                "upiIds": [],
+                "phishingLinks": [],
+                "phoneNumbers": [],
+                "suspiciousKeywords": []
+            }
         }
 
-    # 🤖 Agentic Honeypot Execution
-    agent = HoneypotAgent()
-    agent.run()
+    session = SESSIONS[sid]
+    session["messages"] += 1
 
-    risk_score = min(1.0, 0.4 + 0.15 * len(agent.history))
+    # Detect scam
+    if detect_scam(req.message.text):
+        session["scamDetected"] = True
+
+    # Extract intelligence
+    extract_intelligence(req.message.text, session["intelligence"])
+
+    # Agent reply
+    agent = HoneypotAgent()
+    reply_text = agent.generate_reply(req.conversationHistory)
+
+    # FINAL GUVI CALLBACK 
+    if session["scamDetected"] and session["messages"] >= 5:
+        payload = {
+            "sessionId": sid,
+            "scamDetected": True,
+            "totalMessagesExchanged": session["messages"],
+            "extractedIntelligence": session["intelligence"],
+            "agentNotes": "Urgency-based bank impersonation scam"
+        }
+        send_final_callback(payload)
 
     return {
-        "is_scam": True,
-        "scam_type": "Bank / UPI Scam",
-        "extracted_entities": agent.entities,
-        "conversation": agent.history,
-        "risk_score": round(risk_score, 2)
+        "status": "success",
+        "reply": reply_text
     }

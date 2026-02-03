@@ -1,12 +1,22 @@
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Optional
+
+class Message(BaseModel):
+    sender: str
+    text: str
+    timestamp: str
+
+class Metadata(BaseModel):
+    channel: Optional[str] = None
+    language: Optional[str] = None
+    locale: Optional[str] = None
 
 class HoneypotRequest(BaseModel):
-    message: str
+    sessionId: str
+    message: Message
+    conversationHistory: List[Message] = []
+    metadata: Optional[Metadata] = None
 
-class HoneypotResponse(BaseModel):
-    is_scam: bool
-    scam_type: str
-    extracted_entities: Dict[str, List[str]]
-    conversation: List[str]
-    risk_score: float
+class HoneypotReply(BaseModel):
+    status: str
+    reply: str
