@@ -1,8 +1,11 @@
-SCAM_KEYWORDS = [
-    "bank", "upi", "verify", "refund",
-    "account", "click", "send", "money"
-]
-
 def detect_scam(text: str) -> bool:
+    keywords = [
+        "account blocked",
+        "verify",
+        "urgent",
+        "upi",
+        "bank",
+        "suspended"
+    ]
     text = text.lower()
-    return any(keyword in text for keyword in SCAM_KEYWORDS)
+    return any(k in text for k in keywords)

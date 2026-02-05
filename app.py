@@ -9,13 +9,14 @@ app = FastAPI(title="Agentic Honeypot API")
 
 API_KEY = "GUVI123"
 
-
 SESSIONS = {}
 
-@app.post("/honeypot/analyze", response_model=HoneypotReply)
-def honeypot(req: HoneypotRequest, x_api_key: str = Header(None)):
 
-    if x_api_key != API_KEY:
+@app.post("/message", response_model=HoneypotReply)
+def honeypot(req: HoneypotRequest, x_api_key: str | None = Header(None)):
+
+    # TEMPORARILY LENIENT FOR GUVI
+    if x_api_key and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
     sid = req.sessionId
@@ -36,25 +37,25 @@ def honeypot(req: HoneypotRequest, x_api_key: str = Header(None)):
     session = SESSIONS[sid]
     session["messages"] += 1
 
-    # Detect scam
+    # Scam detection
     if detect_scam(req.message.text):
         session["scamDetected"] = True
 
-    # Extract intelligence
+    # Intelligence extraction
     extract_intelligence(req.message.text, session["intelligence"])
 
     # Agent reply
     agent = HoneypotAgent()
     reply_text = agent.generate_reply(req.conversationHistory)
 
-    # FINAL GUVI CALLBACK 
+    # FINAL GUVI CALLBACK
     if session["scamDetected"] and session["messages"] >= 5:
         payload = {
             "sessionId": sid,
             "scamDetected": True,
             "totalMessagesExchanged": session["messages"],
             "extractedIntelligence": session["intelligence"],
-            "agentNotes": "Urgency-based bank impersonation scam"
+            "agentNotes": "Urgency-based financial impersonation scam"
         }
         send_final_callback(payload)
 
