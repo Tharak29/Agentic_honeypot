@@ -1,10 +1,6 @@
 class HoneypotAgent:
-    def generate_reply(self, history: list) -> str:
-        replies = [
-            "Why is my account being blocked?",
-            "I don’t understand, can you explain?",
-            "Is this really from the bank?",
-            "What happens if I don’t verify now?",
-            "Can you send details again?"
-        ]
-        return replies[len(history) % len(replies)]
+    def generate_reply(self, history):
+        if not history:
+            return "Why is my account being blocked?"
+
+        return "I already told you I am confused. Can you explain again?"
